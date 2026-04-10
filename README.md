@@ -1,58 +1,90 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# TaskManage
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+A feature-rich Task Management system built on top of Laravel, offering robust handling of tasks including creation, modification, validation, and file attachments.
 
-## About Laravel
+## Setup Instructions
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+To get the Task Management system up and running on your local machine, follow these steps:
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+1. **Clone the repository** (or navigate to your working directory):
+   ```bash
+   cd TaskManage
+   ```
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+2. **Install PHP Dependencies**:
+   ```bash
+   composer install
+   ```
 
-## Learning Laravel
+3. **Install Node.js Dependencies**:
+   ```bash
+   npm install
+   ```
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+4. **Environment Setup**:
+   Copy the example environment file and set up the required configurations.
+   ```bash
+   cp .env.example .env
+   ```
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+5. **Generate Application Key**:
+   ```bash
+   php artisan key:generate
+   ```
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+6. **Database Migration**:
+   We use SQLite by default as pre-configured in `.env.example`.
+   Run the database migrations to set up the necessary tables:
+   ```bash
+   php artisan migrate
+   ```
 
-## Agentic Development
+7. **Compile Frontend Assets**:
+   ```bash
+   npm run build
+   # or for development
+   npm run dev
+   ```
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+8. **Start the Application**:
+   Serve the application using Artisan:
+   ```bash
+   php artisan serve
+   ```
+   Alternatively, you can access the application via Laravel Herd depending on your local setup.
 
-```bash
-composer require laravel/boost --dev
+## Technologies Used
 
-php artisan boost:install
-```
+* **PHP 8.3**
+* **Laravel 13.0** - The core PHP framework
+* **mySql** - Default relational database setup
+* **Tailwind CSS 4.0** - Utility-first CSS framework for styling UI components
+* **Vite** - Frontend build tool and asset bundler
+* **Pest PHP** - PHP Testing Framework
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+## Assumptions & Decisions Made
 
-## Contributing
+* **Database Strategy**: Chose mySql as the default database for ease of local development and a painless initialization process.
+* **Attachment Storage**: Tasks support file attachments. The local public disk (`storage/app/public`) is utilized for handling multipart file uploads, leveraging Laravel's filesystem conventions.
+* **UI/UX Choices**: Blade templates mapped with Tailwind CSS are used to deliver a clean, aesthetic, and responsive interface for operations like listing tasks and managing creation/editing forms.
+* **Testing Framework**: We adopted Pest PHP to write cleaner, more expressive tests compared to traditional PHPUnit configurations. 
+* **State Management**: The application strictly follows Laravel MVC structures. Redirection and basic session states are employed (e.g., flashing success states after task creation/updates).
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+## Testing Approach
 
-## Code of Conduct
+Application robustness is maintained through a robust suite of automated feature tests validating HTTP endpoints, database integrations, and attachment behaviors.
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
-
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
-
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+1. **Core Utilities**: Tests are written using **Pest PHP** integrating native Laravel testing APIs mapped under `tests/Feature/TaskTest.php`.
+2. **Feature Coverage**: 
+   - **Page Rendering**: Validating routing paths (`tasks.index`, `tasks.create`, `tasks.edit`, `tasks.show`) reliably return HTTP `200` statuses.
+   - **CRUD Operations**: Ensuring proper payload handling on task inserts, updates, and deletes, combined with comprehensive assertions (`assertDatabaseHas`, `assertDatabaseMissing`).
+   - **File Uploads**: Meticulously verifying multipart form uploads using `Storage::fake('public')` alongside `UploadedFile::fake()` to guarantee attachments persist perfectly on disk while their references are stored in the database.
+3. **Test Execution**: 
+   To execute the system tests locally, run:
+   ```bash
+   php artisan test
+   ```
+   Or call Pest directly:
+   ```bash
+   ./vendor/bin/pest
+   ```
