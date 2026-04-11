@@ -88,3 +88,19 @@ Application robustness is maintained through a robust suite of automated feature
    ```bash
    ./vendor/bin/pest
    ```
+
+## API Documentation
+
+The application provides a RESTful API for managing tasks. All API requests should be directed to the `/api` prefix and responses are returned in JSON format.
+
+### Endpoints
+
+* **`GET /api/tasks`** - Retrieve a paginated list of tasks (10 per page).
+* **`POST /api/tasks`** - Create a newly created task.
+* **`GET /api/tasks/{task}`** - Retrieve a specific task by its ID.
+* **`PUT/PATCH /api/tasks/{task}`** - Update an existing task.
+* **`DELETE /api/tasks/{task}`** - Delete a specific task. Returns `204 No Content`.
+
+### Resource Format
+
+The API utilizes Laravel's Eloquent API Resources (`TaskResource`) to consistently format the JSON responses for individual models and collections.
