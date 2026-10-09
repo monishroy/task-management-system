@@ -1,6 +1,6 @@
 # ==============================================================================
 # Multi-stage Dockerfile for Laravel Application with Supervisor (Coolify Ready)
-# Optimized for high performance, fast build times, and zero-downtime reliability
+# Optimized for ultra-fast builds, minimal network overhead, and high performance
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
@@ -43,41 +43,63 @@ RUN composer install \
 
 # ------------------------------------------------------------------------------
 # Stage 3: Production Runtime (PHP 8.4-FPM + Nginx + Supervisor)
-# Uses Debian Bookworm for instant pre-compiled extension installations
+# Streamlined single-layer dependency install with Fastly CDN mirror
 # ------------------------------------------------------------------------------
 FROM php:8.4-fpm-bookworm AS production
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install essential system dependencies & runtime packages
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    nginx \
-    supervisor \
-    curl \
-    bash \
-    tzdata \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/* \
+# 1. Switch to Fastly CDN mirror for fast downloads
+# 2. Install runtime & PHP extension libraries in a SINGLE step
+# 3. Clean up build artifacts to keep image lean
+RUN sed -i 's|deb.debian.org|cdn-fastly.deb.debian.org|g' /etc/apt/sources.list.d/debian.sources 2>/dev/null \
+    || sed -i 's|deb.debian.org|cdn-fastly.deb.debian.org|g' /etc/apt/sources.list 2>/dev/null \
+    || true \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        nginx \
+        supervisor \
+        curl \
+        bash \
+        tzdata \
+        ca-certificates \
+        libpq5 \
+        libzip4 \
+        libicu72 \
+        libpng16-16 \
+        libjpeg62-turbo \
+        libfreetype6 \
+        libwebp7 \
+        libpq-dev \
+        libzip-dev \
+        libicu-dev \
+        libpng-dev \
+        libjpeg62-turbo-dev \
+        libfreetype6-dev \
+        libwebp-dev \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
+    && docker-php-ext-install -j$(nproc) \
+        pdo_mysql \
+        pdo_pgsql \
+        bcmath \
+        pcntl \
+        opcache \
+        exif \
+        zip \
+        intl \
+        gd \
+    && pecl install redis \
+    && docker-php-ext-enable redis \
+    && apt-get purge -y --auto-remove \
+        libpq-dev \
+        libzip-dev \
+        libicu-dev \
+        libpng-dev \
+        libjpeg62-turbo-dev \
+        libfreetype6-dev \
+        libwebp-dev \
+    && rm -rf /var/lib/apt/lists/* /tmp/pear \
     && rm -f /etc/nginx/sites-enabled/default
-
-# Install Docker PHP Extension Installer for instant pre-compiled extensions
-COPY --from=mlocati/php-extension-installer /usr/bin/install-php-extensions /usr/local/bin/
-
-# Install required PHP extensions for Laravel & database drivers
-RUN install-php-extensions \
-    pdo_mysql \
-    pdo_pgsql \
-    pdo_sqlite \
-    bcmath \
-    mbstring \
-    xml \
-    zip \
-    intl \
-    gd \
-    opcache \
-    pcntl \
-    redis \
-    exif
 
 # Copy Composer binary into runtime for artisan/cli operations
 COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
