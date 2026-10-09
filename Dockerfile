@@ -1,5 +1,6 @@
 # ==============================================================================
 # Multi-stage Dockerfile for Laravel Application with Supervisor (Coolify Ready)
+# Optimized for high performance, fast build times, and zero-downtime reliability
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
@@ -9,18 +10,14 @@ FROM node:22-alpine AS frontend_builder
 
 WORKDIR /app
 
-# Copy dependency definition files
+# Cache package dependencies layer
 COPY package.json package-lock.json ./
-
-# Install npm dependencies
 RUN npm ci --no-audit
 
-# Copy frontend source files & configs
-COPY vite.config.js ./
-COPY resources/ resources/
-COPY public/ public/
+# Copy source files required for asset compilation & Tailwind class scanning
+COPY . .
 
-# Build assets with Vite
+# Compile production assets
 RUN npm run build
 
 
@@ -31,10 +28,10 @@ FROM composer:2 AS composer_builder
 
 WORKDIR /app
 
-# Copy composer files
+# Cache composer dependency layer
 COPY composer.json composer.lock ./
 
-# Install PHP dependencies without dev dependencies & scripts
+# Install PHP dependencies without dev packages or scripts
 RUN composer install \
     --no-dev \
     --no-interaction \
@@ -46,27 +43,27 @@ RUN composer install \
 
 # ------------------------------------------------------------------------------
 # Stage 3: Production Runtime (PHP 8.4-FPM + Nginx + Supervisor)
+# Uses Debian Bookworm for instant pre-compiled extension installations
 # ------------------------------------------------------------------------------
-FROM php:8.4-fpm-alpine AS production
+FROM php:8.4-fpm-bookworm AS production
 
-# Install system dependencies & utilities
-RUN apk add --no-cache \
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install essential system dependencies & runtime packages
+RUN apt-get update && apt-get install -y --no-install-recommends \
     nginx \
     supervisor \
     curl \
     bash \
     tzdata \
-    libzip \
-    libpng \
-    libjpeg-turbo \
-    freetype \
-    icu-libs \
-    oniguruma
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -f /etc/nginx/sites-enabled/default
 
-# Install Docker PHP Extension Installer for clean, reliable PHP extensions
+# Install Docker PHP Extension Installer for instant pre-compiled extensions
 COPY --from=mlocati/php-extension-installer /usr/bin/install-php-extensions /usr/local/bin/
 
-# Install required PHP extensions for Laravel & DB drivers
+# Install required PHP extensions for Laravel & database drivers
 RUN install-php-extensions \
     pdo_mysql \
     pdo_pgsql \
@@ -85,7 +82,7 @@ RUN install-php-extensions \
 # Copy Composer binary into runtime for artisan/cli operations
 COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
 
-# Configure Nginx, PHP, and Supervisor
+# Configure Nginx, PHP-FPM, and Supervisor
 COPY docker/nginx/nginx.conf /etc/nginx/nginx.conf
 COPY docker/nginx/default.conf /etc/nginx/conf.d/default.conf
 COPY docker/php/php.ini /usr/local/etc/php/conf.d/99-custom.ini
@@ -99,23 +96,25 @@ WORKDIR /var/www/html
 # Copy application source code
 COPY . .
 
-# Copy vendor from composer_builder
+# Copy vendor packages from composer_builder
 COPY --from=composer_builder /app/vendor ./vendor
 
 # Copy built frontend assets from frontend_builder
 COPY --from=frontend_builder /app/public/build ./public/build
 
-# Finish Composer classmap generation
+# Generate optimized authoritative Composer classmap
 RUN composer dump-autoload --optimize --no-dev --classmap-authoritative
 
-# Ensure runtime directories exist with proper permissions
+# Ensure runtime and storage directories exist with correct permissions
 RUN mkdir -p \
+    /var/www/html/storage/app/public \
     /var/www/html/storage/framework/cache/data \
     /var/www/html/storage/framework/sessions \
     /var/www/html/storage/framework/views \
     /var/www/html/storage/logs \
     /var/www/html/bootstrap/cache \
     /var/log/supervisor \
+    /var/log/nginx \
     /run/nginx \
     && chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
     && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache

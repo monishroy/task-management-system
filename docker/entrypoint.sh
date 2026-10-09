@@ -8,20 +8,40 @@ export AUTORUN_LARAVEL_MIGRATION=${AUTORUN_LARAVEL_MIGRATION:-false}
 export AUTORUN_LARAVEL_OPTIMIZE=${AUTORUN_LARAVEL_OPTIMIZE:-true}
 export AUTORUN_STORAGE_LINK=${AUTORUN_STORAGE_LINK:-true}
 
-# Ensure runtime directories exist
-mkdir -p /var/www/html/storage/framework/cache/data \
+echo "================================================="
+echo "   Starting Laravel Application Container        "
+echo "================================================="
+
+# Ensure all runtime and storage directories exist (especially if volume mounted)
+mkdir -p /var/www/html/storage/app/public \
+         /var/www/html/storage/framework/cache/data \
          /var/www/html/storage/framework/sessions \
          /var/www/html/storage/framework/views \
          /var/www/html/storage/logs \
-         /var/www/html/bootstrap/cache
+         /var/www/html/bootstrap/cache \
+         /var/log/supervisor \
+         /var/log/nginx \
+         /run/nginx
 
-# Fix permissions on storage and cache
+# Ensure SQLite file exists if using SQLite driver
+if [ "${DB_CONNECTION}" = "sqlite" ]; then
+    SQLITE_DB="${DB_DATABASE:-/var/www/html/database/database.sqlite}"
+    if [ ! -f "$SQLITE_DB" ]; then
+        echo ">> Initializing SQLite database file: $SQLITE_DB"
+        mkdir -p "$(dirname "$SQLITE_DB")"
+        touch "$SQLITE_DB"
+        chown www-data:www-data "$SQLITE_DB"
+    fi
+fi
+
+# Fix ownership and permissions for web user (www-data)
+echo ">> Setting permissions for storage and bootstrap/cache..."
 chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
 # Create storage symlink
 if [ "$AUTORUN_STORAGE_LINK" = "true" ]; then
-    echo ">> Linking storage..."
+    echo ">> Linking storage directory..."
     php /var/www/html/artisan storage:link --force || true
 fi
 
@@ -40,10 +60,12 @@ if [ "$AUTORUN_LARAVEL_OPTIMIZE" = "true" ] && [ "$APP_ENV" = "production" ]; th
     php /var/www/html/artisan event:cache || true
 fi
 
-# Execute passed command (if any), otherwise start Supervisor
+# If custom command was passed to container, execute it directly
 if [ $# -gt 0 ]; then
+    echo ">> Executing custom command: $@"
     exec "$@"
-else
-    echo ">> Starting Supervisord processes..."
-    exec /usr/bin/supervisord -n -c /etc/supervisor/conf.d/supervisord.conf
 fi
+
+# Start Supervisor as PID 1 to handle signal forwarding and process monitoring
+echo ">> Starting Supervisord (Nginx + PHP-FPM + Worker + Scheduler)..."
+exec /usr/bin/supervisord -n -c /etc/supervisor/conf.d/supervisord.conf
