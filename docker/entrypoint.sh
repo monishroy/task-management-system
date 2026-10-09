@@ -4,7 +4,7 @@ set -e
 # Default environment variables for supervisor workers and automation
 export ENABLE_WORKER=${ENABLE_WORKER:-true}
 export ENABLE_CRON=${ENABLE_CRON:-true}
-export AUTORUN_LARAVEL_MIGRATION=${AUTORUN_LARAVEL_MIGRATION:-false}
+export AUTORUN_LARAVEL_MIGRATION=${AUTORUN_LARAVEL_MIGRATION:-true}
 export AUTORUN_LARAVEL_OPTIMIZE=${AUTORUN_LARAVEL_OPTIMIZE:-true}
 export AUTORUN_STORAGE_LINK=${AUTORUN_STORAGE_LINK:-true}
 
@@ -45,8 +45,19 @@ if [ "$AUTORUN_STORAGE_LINK" = "true" ]; then
     php /var/www/html/artisan storage:link --force || true
 fi
 
-# Run database migrations if enabled
+# Run database migrations if enabled (default: true)
 if [ "$AUTORUN_LARAVEL_MIGRATION" = "true" ] || [ "$RUN_MIGRATIONS" = "true" ]; then
+    echo ">> Checking database connectivity and running migrations..."
+    if [ "$DB_CONNECTION" != "sqlite" ] && [ -n "$DB_HOST" ]; then
+        for i in {1..15}; do
+            if php /var/www/html/artisan db:show > /dev/null 2>&1; then
+                echo ">> Database is ready."
+                break
+            fi
+            echo ">> Waiting for database ($DB_HOST:$DB_PORT)... ($i/15)"
+            sleep 2
+        done
+    fi
     echo ">> Running database migrations..."
     php /var/www/html/artisan migrate --force || true
 fi
